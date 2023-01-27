@@ -15,7 +15,9 @@ http://localhost:8082/realms/workshop/.well-known/openid-configuration
 ##### Clients
 
 ehrbase_template_uploader:   MI6sN84CwM90RomVcD4x3LqKJZ66mfqX
+
 ehrbase : mWvJLsDWkVutxxtAmSt3ZLyM0vdyoFO0
+
 fhir-bridge: pYWxtFTPZhfx9E9wdtW8vLVpVGtVKzIk
 
 ```shell
