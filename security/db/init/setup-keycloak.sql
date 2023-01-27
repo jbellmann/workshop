@@ -1,0 +1,6 @@
+--
+-- KEYCLOAK
+--
+CREATE ROLE keycloak WITH LOGIN PASSWORD 'keycloak';
+CREATE DATABASE keycloak ENCODING 'UTF-8' TEMPLATE template0;
+GRANT ALL PRIVILEGES ON DATABASE keycloak TO keycloak;

@@ -1,0 +1,16 @@
+POST http://localhost:8080/ehrbase/rest/openehr/v1/query/aql
+Accept: application/json
+Content-Type: application/json
+
+{"q" : "select e/ehr_id/value, c/name/value, c from EHR e [ehr_id/value='8c7fd91a-e205-4364-8d1f-58b39d25612a'] contains COMPOSITION c"}
+
+###
+POST http://localhost:8080/ehrbase/rest/openehr/v1/query/aql
+Accept: application/json
+Content-Type: application/json
+
+{"q" : "select e/ehr_id/value, c/name/value from EHR e [ehr_id/value='8c7fd91a-e205-4364-8d1f-58b39d25612a'] contains COMPOSITION c"}
+
+###
+GET http://localhost:8080/ehrbase/rest/ecis/v1/composition/8c7fd91a-e205-4364-8d1f-58b39d25612a?format=FLAT
+Accept: application/json

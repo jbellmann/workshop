@@ -1,0 +1,20 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://db:5432/fbridgeOne
+    username: fbridgeOne
+    password: fbridge
+    hikari:
+      driver-class-name: org.postgresql.Driver
+      maximum-pool-size: 5
+  jpa:
+    properties:
+      hibernate.dialect: org.hibernate.dialect.PostgreSQL10Dialect
+
+fhir-bridge:
+  mode: openehr
+  openehr:
+    url: http://ehrbase-one:8080/ehrbase/
+    security:
+      type: none
+  security:
+    type: none

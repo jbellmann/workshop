@@ -1,0 +1,177 @@
+version: '3.9'
+services:
+  db:
+    image: postgres:14
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+    environment:
+      TZ: Europe/Berlin
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      # - ./db/data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.40'
+          memory: 256M
+        reservations:
+          cpus: '0.15'
+          memory: 128M
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 2s
+      timeout: 3s
+      retries: 5
+    ports:
+      - "6379:6379"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 96M
+        reservations:
+          cpus: '0.05'
+          memory: 64M
+
+  keycloak:
+    image: quay.io/keycloak/keycloak:latest
+    command: start-dev --import-realm
+    volumes:
+      - ./keycloak/realms:/opt/keycloak/data/import:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
+      interval: 10s
+      timeout: 2s
+      retries: 10
+      start_period: 30s
+    environment:
+      KC_HEALTH_ENABLED: true
+      KC_METRICS_ENABLED: true
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://db:5432/keycloak
+      KC_DB_USERNAME: keycloak
+      KC_DB_PASSWORD: keycloak
+      KC_HOSTNAME: localhost
+      KEYCLOAK_ADMIN: admin
+      KEYCLOAK_ADMIN_PASSWORD: admin
+    ports:
+      - "8082:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    links:
+      - db
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 4096M
+        reservations:
+          cpus: '0.25'
+          memory: 2048M
+
+  ehrbase:
+    # image: ehrbase/ehrbase:next
+    image: numresearchdataplatform/num-ehrbase:latest
+    pull_policy: always
+    volumes:
+      - ./ehrbase/conf:/ehrbase/conf:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:7979/management/health || exit 1"]
+      interval: 10s
+      timeout: 2s
+      retries: 20
+      start_period: 50s
+    environment:
+      JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=70.0 -XX:MinRAMPercentage=70.0 -XX:InitialRAMPercentage=70.0 --add-opens java.base/java.lang=ALL-UNNAMED"
+      SPRING_CONFIG_LOCATION: /ehrbase/conf/
+      SPRING_PROFILES_ACTIVE: compose
+      DB_URL: jdbc:postgresql://db:5432/ehrbase
+      DB_USER: ehrbase
+      DB_PASS: ehrbase
+      SPRING_REDIS_HOST: redis
+      SECURITY_AUTHTYPE: OAUTH
+      SECURITY_OAUTH2_ADMIN_ROLE: ehrbase_admin
+      SECURITY_OAUTH2_USER_ROLE: ehrbase_user
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/workshop/protocol/openid-connect/certs
+      SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8080/realms/workshop
+      # SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUERURI
+      MANAGEMENT_SERVER_PORT: 7979
+      MANAGEMENT_ENDPOINTS_WEB_ACCESS: PUBLIC
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE: env,health,info,metrics,prometheus
+      MANAGEMENT_ENDPOINTS_WEB_BASEPATH: /management
+      MANAGEMENT_ENDPOINT_ENV_ENABLED: false
+      MANAGEMENT_ENDPOINT_HEALTH_ENABLED: true
+      MANAGEMENT_ENDPOINT_HEALTH_DATASOURCE_ENABLED: false
+      MANAGEMENT_ENDPOINT_INFO_ENABLED: false
+      MANAGEMENT_ENDPOINT_METRICS_ENABLED: false
+      MANAGEMENT_ENDPOINT_PROMETHEUS_ENABLED: false
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: true
+      CACHE_ENABLED: true
+    ports:
+      - "8080:8080"
+      - "7979:7979"
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+      keycloak:
+        condition: service_healthy
+    links:
+      - db
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 2048M
+        reservations:
+          cpus: '0.25'
+          memory: 1024M
+
+  fhir-bridge:
+    image: numresearchdataplatform/num-fhir-bridge:latest
+    # pull_policy: always
+    volumes:
+      - ./fhir-bridge/conf:/fhir-bridge/conf:ro
+    environment:
+      JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=70.0 -XX:MinRAMPercentage=70.0 -XX:InitialRAMPercentage=70.0"
+      FHIR_BRIDGE_OPENEHR_URL: http://ehrbase:8080/ehrbase/
+      FHIR_BRIDGE_OPENEHR_SECURITY_TYPE: OAUTH2
+      FHIR_BRIDGE_OPENEHR_SECURITY_OAUTH2_TOKEN_URL: http://keycloak:8080/realms/workshop/protocol/openid-connect/token
+      FHIR_BRIDGE_OPENEHR_SECURITY_OAUTH2_CLIENT_ID: ehrbase_template_uploader
+      FHIR_BRIDGE_OPENEHR_SECURITY_OAUTH2_CLIENT_SECRET: MI6sN84CwM90RomVcD4x3LqKJZ66mfqX
+      FHIR_BRIDGE_SECURITY_TYPE: OAUTH2
+      FHIR_BRIDGE_SECURITY_OAUTH2_JWK_SET_URI: http://keycloak:8080/realms/workshop/protocol/openid-connect/certs
+      SPRING_CONFIG_LOCATION: /fhir-bridge/conf/
+      SPRING_PROFILES_ACTIVE: pg-db
+      SPRING_DATASOURCE_URL: jdbc:postgresql://db:5432/fbridge
+    ports:
+      - "8888:8888"
+      - "7878:7979"
+    depends_on:
+      ehrbase:
+        condition: service_healthy
+    links:
+      - db
+      - ehrbase
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 2048M
+        reservations:
+          cpus: '0.25'
+          memory: 1024M

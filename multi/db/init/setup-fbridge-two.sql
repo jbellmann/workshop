@@ -1,0 +1,6 @@
+--
+-- FHIR-BRIDGE
+--
+CREATE ROLE "fbridgeTwo" WITH LOGIN PASSWORD 'fbridge';
+CREATE DATABASE "fbridgeTwo" ENCODING 'UTF-8' TEMPLATE template0;
+GRANT ALL PRIVILEGES ON DATABASE "fbridgeTwo" TO "fbridgeTwo";

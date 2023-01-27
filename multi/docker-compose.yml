@@ -1,0 +1,193 @@
+version: '3.9'
+services:
+  db:
+    image: postgres:14
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 2s
+      retries: 5
+    environment:
+      TZ: Europe/Berlin
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: postgres
+    volumes:
+      # - ./db/data:/var/lib/postgresql/data
+      - ./db/init:/docker-entrypoint-initdb.d:ro
+    ports:
+      - "5432:5432"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.40'
+          memory: 256M
+        reservations:
+          cpus: '0.15'
+          memory: 128M
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli ping | grep PONG"]
+      interval: 2s
+      timeout: 3s
+      retries: 5
+    ports:
+      - "6379:6379"
+    deploy:
+      resources:
+        limits:
+          cpus: '0.20'
+          memory: 96M
+        reservations:
+          cpus: '0.05'
+          memory: 64M
+
+  ehrbase-one:
+    image: ehrbase/ehrbase:latest
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:7979/management/health || exit 1"]
+      interval: 10s
+      timeout: 2s
+      retries: 20
+      start_period: 50s
+    environment:
+      JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=70.0 -XX:MinRAMPercentage=70.0 -XX:InitialRAMPercentage=70.0 --add-opens java.base/java.lang=ALL-UNNAMED"
+      SPRING_PROFILES_ACTIVE: docker
+      DB_URL: jdbc:postgresql://db:5432/ehrbaseOne
+      DB_USER: ehrbaseOne
+      DB_PASS: ehrbaseOne
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_DATABASE: 0
+      SECURITY_AUTHTYPE: NONE
+      MANAGEMENT_SERVER_PORT: 7979
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE: env,health,info,metrics,prometheus
+      MANAGEMENT_ENDPOINTS_WEB_BASEPATH: /management
+      MANAGEMENT_ENDPOINT_ENV_ENABLED: false
+      MANAGEMENT_ENDPOINT_HEALTH_ENABLED: true
+      MANAGEMENT_ENDPOINT_HEALTH_DATASOURCE_ENABLED: false
+      MANAGEMENT_ENDPOINT_INFO_ENABLED: false
+      MANAGEMENT_ENDPOINT_METRICS_ENABLED: false
+      MANAGEMENT_ENDPOINT_PROMETHEUS_ENABLED: false
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: true
+      CACHE_ENABLED: true
+    ports:
+      - "8080:8080"
+      - "7979:7979"
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    links:
+      - db
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 2048M
+        reservations:
+          cpus: '0.25'
+          memory: 1024M
+
+  ehrbase-two:
+    image: ehrbase/ehrbase:latest
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:7979/management/health || exit 1"]
+      interval: 10s
+      timeout: 2s
+      retries: 20
+      start_period: 50s
+    environment:
+      JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=70.0 -XX:MinRAMPercentage=70.0 -XX:InitialRAMPercentage=70.0 --add-opens java.base/java.lang=ALL-UNNAMED"
+      SPRING_PROFILES_ACTIVE: docker
+      DB_URL: jdbc:postgresql://db:5432/ehrbaseTwo
+      DB_USER: ehrbaseTwo
+      DB_PASS: ehrbaseTwo
+      SPRING_REDIS_HOST: redis
+      SPRING_REDIS_DATABASE: 1
+      SECURITY_AUTHTYPE: NONE
+      MANAGEMENT_SERVER_PORT: 7979
+      MANAGEMENT_ENDPOINTS_WEB_EXPOSURE: env,health,info,metrics,prometheus
+      MANAGEMENT_ENDPOINTS_WEB_BASEPATH: /management
+      MANAGEMENT_ENDPOINT_ENV_ENABLED: false
+      MANAGEMENT_ENDPOINT_HEALTH_ENABLED: true
+      MANAGEMENT_ENDPOINT_HEALTH_DATASOURCE_ENABLED: false
+      MANAGEMENT_ENDPOINT_INFO_ENABLED: false
+      MANAGEMENT_ENDPOINT_METRICS_ENABLED: false
+      MANAGEMENT_ENDPOINT_PROMETHEUS_ENABLED: false
+      MANAGEMENT_ENDPOINT_HEALTH_PROBES_ENABLED: true
+      CACHE_ENABLED: true
+    ports:
+      - "8081:8080"
+      - "7878:7979"
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
+    links:
+      - db
+      - redis
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 2048M
+        reservations:
+          cpus: '0.25'
+          memory: 1024M
+
+  fhir-bridge-one:
+    image: numresearchdataplatform/num-fhir-bridge:latest
+    volumes:
+      - ./fhir-bridge/conf:/fhir-bridge/conf:ro
+    environment:
+      JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=70.0 -XX:MinRAMPercentage=70.0 -XX:InitialRAMPercentage=70.0"
+      SPRING_CONFIG_LOCATION: /fhir-bridge/conf/
+      SPRING_PROFILES_ACTIVE: fbridge-one,custom-logging
+    ports:
+      - "8888:8888"
+      - "7777:7979"
+    depends_on:
+      ehrbase-one:
+        condition: service_healthy
+    links:
+      - db
+      - ehrbase-one
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 2048M
+        reservations:
+          cpus: '0.25'
+          memory: 1024M
+
+  fhir-bridge-two:
+    image: numresearchdataplatform/num-fhir-bridge:latest
+    volumes:
+      - ./fhir-bridge/conf:/fhir-bridge/conf:ro
+    environment:
+      JDK_JAVA_OPTIONS: "-XX:MaxRAMPercentage=70.0 -XX:MinRAMPercentage=70.0 -XX:InitialRAMPercentage=70.0"
+      SPRING_CONFIG_LOCATION: /fhir-bridge/conf/
+      SPRING_PROFILES_ACTIVE: fbridge-two,custom-logging
+    ports:
+      - "8889:8888"
+      - "7779:7979"
+    depends_on:
+      ehrbase-two:
+        condition: service_healthy
+    links:
+      - db
+      - ehrbase-two
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 2048M
+        reservations:
+          cpus: '0.25'
+          memory: 1024M
