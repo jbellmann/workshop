@@ -28,6 +28,12 @@ curl \
   "http://localhost:8082/realms/workshop/protocol/openid-connect/token"
 ```
 
+➜  ~ curl \
+  -d "client_id=ehrbase_template_uploader" \
+  -d "client_secret=MI6sN84CwM90RomVcD4x3LqKJZ66mfqX" \
+  -d "grant_type=client_credentials" \
+  "http://localhost:8082/realms/workshop/protocol/openid-connect/token"
+
 #### Docker
 
 ````shell
