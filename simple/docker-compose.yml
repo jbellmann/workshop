@@ -45,7 +45,7 @@ services:
           memory: 64M
 
   ehrbase:
-    image: ehrbase/ehrbase:latest
+    image: numresearchdataplatform/num-ehrbase:latest
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:7979/management/health || exit 1"]
       interval: 10s
