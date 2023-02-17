@@ -82,6 +82,11 @@ services:
     ports:
       - "8080:8080"
       - "7979:7979"
+    depends_on:
+      redis:
+        condition: service_healthy
+      db:
+        condition: service_healthy
     links:
       - db
       - redis
