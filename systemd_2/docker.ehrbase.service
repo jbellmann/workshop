@@ -1,0 +1,19 @@
+[Unit]
+Description=EHRbase Container
+After=docker.postgres.service
+Requires=docker.postgres.service
+
+[Service]
+TimeoutStartSec=0
+Restart=always
+ExecStartPre=-/usr/bin/docker stop %n
+ExecStartPre=-/usr/bin/docker rm %n
+ExecStartPre=/usr/bin/docker pull numresearchdataplatform/num-ehrbase:latest
+ExecStart=/usr/bin/docker run \
+--env-file=/lib/systemd/workshop/ehrbase.env \
+-p 8080:8080 \
+-p 7979:7979 \
+--rm --name %n numresearchdataplatform/num-ehrbase:latest
+
+[Install]
+WantedBy=multi-user.target
